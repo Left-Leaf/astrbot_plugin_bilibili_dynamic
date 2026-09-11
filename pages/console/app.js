@@ -20,7 +20,11 @@ const el = {
   subscribers: document.getElementById("subscribers"),
   dynamics: document.getElementById("dynamics"),
   logs: document.getElementById("logs"),
+  depsGate: document.getElementById("deps-gate"),
+  depsInstall: document.getElementById("deps-install"),
   depsLogs: document.getElementById("deps-logs"),
+  panels: document.getElementById("console-panels"),
+  statusBar: document.getElementById("status-bar"),
   dispatchLogs: document.getElementById("dispatch-logs"),
   output: document.getElementById("output"),
   form: document.getElementById("command-form"),
@@ -141,13 +145,24 @@ function renderDeps(deps) {
     ? "⏳ 正在安装…"
     : deps.installed
       ? "✅ 依赖已安装"
-      : "⚠️ 依赖未安装：点「安装 Node 依赖」";
+      : "⚠️ 依赖未安装";
   const logs = deps.logs || [];
   el.depsLogs.textContent = [
     `${state}｜${deps.message || ""}`,
     ...(logs.length ? ["", ...logs] : []),
   ].join("\n");
   el.depsLogs.scrollTop = el.depsLogs.scrollHeight;
+}
+
+/** 依赖是前置条件：没装好时只显示安装面板，装完再显示控制台 */
+function renderDepsGate(state) {
+  const deps = state.deps || {};
+  const ready = deps.installed !== false; // 字段缺失时按已安装处理，避免把页面锁死
+  el.depsGate.hidden = ready;
+  el.panels.hidden = !ready;
+  el.statusBar.hidden = !ready;
+  el.depsInstall.disabled = Boolean(deps.running);
+  renderDeps(deps);
 }
 
 /** 渲染分发记录（每批动态是否发出去、发给哪些群） */
@@ -177,7 +192,7 @@ function renderState(state) {
 
   renderSubscribers(state);
   renderDynamics(state.dynamics || []);
-  renderDeps(state.deps);
+  renderDepsGate(state);
   renderDispatchLogs(state.dispatch_logs || []);
   renderLogs(state.logs || []);
 

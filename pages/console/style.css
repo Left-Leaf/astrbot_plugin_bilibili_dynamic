@@ -23,6 +23,11 @@ body.dark {
   box-sizing: border-box;
 }
 
+/* .layout / .status-bar 自己设了 display，会盖掉 hidden 属性的 UA 样式 */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   padding: 16px;
@@ -97,6 +102,22 @@ h2 {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--panel);
+}
+
+/* 依赖前置面板：未安装依赖时页面只显示它 */
+.gate {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.gate .btn {
+  margin-top: 10px;
+  padding: 10px 18px;
+}
+
+.gate .btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .button-grid {

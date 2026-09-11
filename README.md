@@ -28,7 +28,7 @@ astrbot_plugin_bilibili/
 
 | 指令 | 说明 |
 | --- | --- |
-| `deps install` | 安装 Node 依赖（等价于在 `node/` 目录执行 `npm install`，后台运行，进度见「Node 依赖」面板） |
+| `deps install` | 安装 Node 依赖（相当于在 `node/` 目录执行 `npm install`，后台运行，进度见安装面板） |
 | `start` | 启动引擎：拉起 Node 内核并打开浏览器（不开启任何功能） |
 | `stop` | 关闭引擎：结束浏览器与 Node 进程 |
 | `login` | 确保登录，未登录时生成二维码（页面自动显示，可直接扫码） |
@@ -136,10 +136,10 @@ card 1245555131632582824
 
 ## 安装与首次运行
 
-1. 在 WebUI 侧边栏 `插件` 里点 `B站动态蹲饼` 卡片上的 🖬 图标打开「蹲饼控制台」，
-   先点 **「安装 Node 依赖」**按钮：插件会在后台对 `node/` 目录执行 `npm install`
-   （安装 bilibili-user-simulation / puppeteer-extra / tsx，并下载 Chromium，首次耗时数分钟），
-   进度与 npm 输出直接显示在控制台下方的新「Node 依赖」面板里。
+1. 在 WebUI 侧边栏 `插件` 里点 `B站动态蹲饼` 卡片上的 🖬 图标打开控制台。
+   **没有安装依赖时，页面只会显示一个安装面板**：点「安装 Node 依赖」按钮，插件就会在后台对 `node/`
+   目录执行 `npm install`（安装 bilibili-user-simulation / puppeteer-extra / tsx，并下载 Chromium，
+   首次耗时数分钟），进度与 npm 输出实时显示在同一个面板里；装完页面会自动进入控制台。
 
    也可以自己手动装：`cd data/plugins/astrbot_plugin_bilibili/node && npm install`。
 
