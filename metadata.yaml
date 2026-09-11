@@ -8,11 +8,14 @@ desc: |
   不会注册任何聊天指令，因此群成员无法通过消息开启；控制台页面同时用于展示
   登录二维码，方便扫码登录。
 
+  首次使用先在控制台点「安装 Node 依赖」即可完成 npm install（进度实时回显），
+  装完再启动引擎，不需要手动敲命令行。
+
   蹲饼不筛选：依赖库回传关注流全部 UP 的动态，筛选完全由插件按「群 → 关注 UP
   列表」完成。群管理员在群内发送 /关注up <uid> 即为该群添加订阅（同时在运行态
   关注该 UP），/取关up 移除，/关注列表 查看；捕获到动态后只分发给关注了该作者
   的群，同一个 UP 可被多个群分别订阅。
-version: 2.1.0
+version: 2.2.0
 author: Left-Leaf
 repo: https://github.com/Left-Leaf/astrbot_plugin_bilibili_dynamic
 astrbot_version: ">=4.9.2"

@@ -20,6 +20,7 @@ const el = {
   subscribers: document.getElementById("subscribers"),
   dynamics: document.getElementById("dynamics"),
   logs: document.getElementById("logs"),
+  depsLogs: document.getElementById("deps-logs"),
   dispatchLogs: document.getElementById("dispatch-logs"),
   output: document.getElementById("output"),
   form: document.getElementById("command-form"),
@@ -131,6 +132,24 @@ function renderLogs(logs) {
   el.logs.scrollTop = el.logs.scrollHeight;
 }
 
+/** 渲染 Node 依赖安装状态（含 npm 输出尾部） */
+function renderDeps(deps) {
+  if (!deps) {
+    return;
+  }
+  const state = deps.running
+    ? "⏳ 正在安装…"
+    : deps.installed
+      ? "✅ 依赖已安装"
+      : "⚠️ 依赖未安装：点「安装 Node 依赖」";
+  const logs = deps.logs || [];
+  el.depsLogs.textContent = [
+    `${state}｜${deps.message || ""}`,
+    ...(logs.length ? ["", ...logs] : []),
+  ].join("\n");
+  el.depsLogs.scrollTop = el.depsLogs.scrollHeight;
+}
+
 /** 渲染分发记录（每批动态是否发出去、发给哪些群） */
 function renderDispatchLogs(records) {
   el.dispatchLogs.textContent = records.length
@@ -158,6 +177,7 @@ function renderState(state) {
 
   renderSubscribers(state);
   renderDynamics(state.dynamics || []);
+  renderDeps(state.deps);
   renderDispatchLogs(state.dispatch_logs || []);
   renderLogs(state.logs || []);
 

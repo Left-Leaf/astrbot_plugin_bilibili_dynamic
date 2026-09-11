@@ -28,6 +28,7 @@ astrbot_plugin_bilibili/
 
 | 指令 | 说明 |
 | --- | --- |
+| `deps install` | 安装 Node 依赖（等价于在 `node/` 目录执行 `npm install`，后台运行，进度见「Node 依赖」面板） |
 | `start` | 启动引擎：拉起 Node 内核并打开浏览器（不开启任何功能） |
 | `stop` | 关闭引擎：结束浏览器与 Node 进程 |
 | `login` | 确保登录，未登录时生成二维码（页面自动显示，可直接扫码） |
@@ -37,8 +38,8 @@ astrbot_plugin_bilibili/
 | `dynamics [n]` | 查看最近捕获的动态 |
 | `help` | 内核内置指令列表 |
 
-控制台页面还会展示群订阅表、最近捕获的动态、分发记录和引擎日志。页面上的按钮等价于
-下发上述指令。
+控制台页面还会展示群订阅表、最近捕获的动态、分发记录、Node 依赖状态与引擎日志。
+页面上的按钮等价于下发上述指令。
 
 ## 群订阅：群 → 关注 UP 列表（用户侧，仅管理员）
 
@@ -135,15 +136,14 @@ card 1245555131632582824
 
 ## 安装与首次运行
 
-1. 安装 Node 依赖（首次会下载 Chromium，耗时数分钟）：
+1. 在 WebUI 侧边栏 `插件` 里点 `B站动态蹲饼` 卡片上的 🖬 图标打开「蹲饼控制台」，
+   先点 **「安装 Node 依赖」**按钮：插件会在后台对 `node/` 目录执行 `npm install`
+   （安装 bilibili-user-simulation / puppeteer-extra / tsx，并下载 Chromium，首次耗时数分钟），
+   进度与 npm 输出直接显示在控制台下方的新「Node 依赖」面板里。
 
-   ```bash
-   cd data/plugins/astrbot_plugin_bilibili/node
-   npm install
-   ```
+   也可以自己手动装：`cd data/plugins/astrbot_plugin_bilibili/node && npm install`。
 
-2. 重载插件，在 WebUI 侧边栏 `插件` 里点 `B站动态蹲饼` 卡片上的 🖬 图标打开「蹲饼控制台」，
-   点 ⚙️ 图标编辑插件配置（分发样式、渲染参数、依赖路径等；蹲饼目标在群里用 `/关注up` 配置）。
+2. 点 ⚙️ 图标编辑插件配置（分发样式、渲染参数、依赖路径等；蹲饼目标在群里用 `/关注up` 配置）。
 3. 依次执行：`start` → `login`（页面出现二维码后用 B 站 App 扫码）→ `fetch on`。
 4. 在需要的群里由管理员发送 `/关注up <uid>`（例如 `/关注up 161775300`），
    之后该 UP 的新动态会自动分发到这个群。

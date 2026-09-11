@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import shutil
 import time
 from collections import deque
 from pathlib import Path
@@ -46,6 +47,7 @@ CONSOLE_HELP = """可用的控制台指令：
   fetch off [close]    关闭蹲饼（带 close 时同时关闭动态页标签）
   follow <uid>         运行态主动关注一个 UP（独立操作，不进模拟任务流）
   card <动态id/链接>    把本次运行捕获过的动态渲染成分享图（存到插件数据目录的 cards/）
+  deps install         安装 Node 依赖（等价于在 node/ 目录执行 npm install，首次会下载 Chromium）
   sim on               开启模拟人格（养号任务流）
   sim off              结束模拟人格
   status               查看内核状态快照
@@ -58,7 +60,7 @@ CONSOLE_HELP = """可用的控制台指令：
     PLUGIN_NAME,
     "Left-Leaf",
     "B 站动态蹲饼：控制台控制引擎，按群订阅筛选分发动态",
-    "2.1.0",
+    "2.2.0",
 )
 class BilibiliPlugin(Star):
     """B 站动态蹲饼插件（Node 桥接 + 控制台控制 + 群级 UP 订阅分发）。"""
@@ -89,6 +91,17 @@ class BilibiliPlugin(Star):
         self._dynamic_watermark: float | None = self._load_watermark()
         """已见动态里最新的发布时间戳（新动态判定水位线）；None 表示从未获取过。"""
 
+        self._deps_task: asyncio.Task | None = None
+        """后台安装 Node 依赖的任务（None 表示未在运行）。"""
+
+        self._deps: dict[str, Any] = {
+            "running": False,
+            "ok": None,
+            "message": "未安装：点控制台的「安装 Node 依赖」按钮即可",
+            "logs": deque(maxlen=300),
+        }
+        """Node 依赖安装状态与 npm 输出（控制台「Node 依赖」面板直接展示）。"""
+
         self.bridge = BridgeProcess(
             self.node_dir,
             self.config,
@@ -118,6 +131,11 @@ class BilibiliPlugin(Star):
             f"[bilibili] 插件已加载：{len(self._subscribers)} 个群、{total_targets} 条 UP 订阅；"
             "引擎开关请在 WebUI 插件页面「控制台」中操作",
         )
+        if not (self.node_dir / "node_modules").exists():
+            logger.info(
+                "[bilibili] Node 依赖尚未安装：可点控制台的「安装 Node 依赖」按钮"
+                "（等价于在 node/ 目录执行 npm install）",
+            )
 
     async def terminate(self) -> None:
         """插件卸载 / 重载时结束桥接进程，避免残留浏览器占用用户数据目录。"""
@@ -325,6 +343,8 @@ class BilibiliPlugin(Star):
                 return {"ok": True, "output": "🛑 引擎已关闭。"}
             if head == "help":
                 return {"ok": True, "output": CONSOLE_HELP}
+            if line == "deps install":
+                return self._start_deps_install()
             if head == "card":
                 # 把本次运行已捕获的动态渲染成分享图（不需要引擎，但需要已捕获的数据）
                 dyn_id = "".join(
@@ -359,6 +379,73 @@ class BilibiliPlugin(Star):
             logger.error(f"[bilibili] 控制台指令 `{line}` 执行失败: {exc}")
             return {"ok": False, "output": str(exc)}
 
+    def _start_deps_install(self) -> dict:
+        """启动后台安装 Node 依赖（npm install），进度由控制台状态回显。
+
+        安装会下载依赖与 Chromium，耗时数分钟，所以不阻塞这次请求；
+        结果和 npm 输出通过 ``console/state`` 的 ``deps`` 字段给页面。
+
+        Returns:
+            形如 ``{"ok": bool, "output": str}`` 的执行结果。
+        """
+        if self._deps_task and not self._deps_task.done():
+            return {"ok": False, "output": "依赖安装已在进行中，请等当前安装结束。"}
+        if self.bridge.running:
+            return {
+                "ok": False,
+                "output": "引擎正在运行：请先执行 `stop` 关闭引擎，再安装依赖。",
+            }
+        npm = shutil.which("npm")
+        if not npm:
+            return {
+                "ok": False,
+                "output": "未找到 npm：请先安装 Node.js（推荐 20 及以上）后重试。",
+            }
+
+        self._deps["logs"].clear()
+        self._deps.update(running=True, ok=None, message="安装中…")
+        self._deps_task = asyncio.create_task(self._install_node_deps(npm))
+        return {
+            "ok": True,
+            "output": "⏳ 已开始安装 Node 依赖（npm install）：进度见下方「Node 依赖」面板。",
+        }
+
+    async def _install_node_deps(self, npm: str) -> None:
+        """执行 npm install，并把输出逐行追加到控制台面板。
+
+        Args:
+            npm: npm 可执行文件路径（由 ``shutil.which`` 得到）。
+        """
+        argv = [npm, "install", "--no-audit", "--no-fund"]
+        self._deps["logs"].append(f"$ {' '.join(argv)}\n(cwd: {self.node_dir})")
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *argv,
+                cwd=str(self.node_dir),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
+            assert proc.stdout is not None
+            async for raw in proc.stdout:
+                text = raw.decode("utf-8", errors="replace").rstrip()
+                if text:
+                    self._deps["logs"].append(text)
+            code = await proc.wait()
+        except Exception as exc:  # noqa: BLE001 - 失败原因要回显到控制台
+            self._deps.update(running=False, ok=False, message=f"安装失败：{exc}")
+            logger.error(f"[bilibili] 安装 Node 依赖失败: {exc}")
+            return
+
+        ok = code == 0 and (self.node_dir / "node_modules").exists()
+        if code != 0:
+            message = f"❌ 安装失败（npm 退出码 {code}），详见下方输出"
+        elif not ok:
+            message = "⚠️ npm 执行成功但没有生成 node_modules：请检查 node/package.json 是否正常"
+        else:
+            message = "✅ 依赖已安装，可以启动引擎了"
+        self._deps.update(running=False, ok=ok, message=message)
+        logger.info(f"[bilibili] Node 依赖安装结束：{message}")
+
     def _console_state(self) -> dict:
         """汇总控制台页面状态。
 
@@ -386,6 +473,13 @@ class BilibiliPlugin(Star):
         state["subscribed_uids"] = self._subscribed_uids()
         state["dispatch_logs"] = list(self.dispatch_logs)
         state["help"] = CONSOLE_HELP
+        state["deps"] = {
+            "installed": (self.node_dir / "node_modules").exists(),
+            "running": bool(self._deps["running"]),
+            "ok": self._deps["ok"],
+            "message": self._deps["message"],
+            "logs": list(self._deps["logs"])[-40:],
+        }
         return state
 
     # ===== 群订阅表 =====

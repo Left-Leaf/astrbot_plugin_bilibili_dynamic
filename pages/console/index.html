@@ -49,6 +49,7 @@
       <section class="panel">
         <h2>指令</h2>
         <div class="button-grid">
+          <button class="btn" data-line="deps install" type="button">安装 Node 依赖</button>
           <button class="btn" data-line="start" type="button">启动引擎</button>
           <button class="btn" data-line="login" type="button">获取登录二维码</button>
           <button class="btn" data-line="fetch on" type="button">开启蹲饼</button>
@@ -70,6 +71,16 @@
           <button class="btn" type="submit">执行</button>
         </form>
         <pre class="output" id="output"></pre>
+      </section>
+
+      <section class="panel">
+        <h2>Node 依赖</h2>
+        <p class="hint">
+          首次使用先点上方「安装 Node 依赖」（等价于在插件 node/ 目录执行 npm install）：
+          会安装 bilibili-user-simulation / puppeteer-extra / tsx，并下载 Chromium，耗时数分钟。
+          安装过程中请勿关闭页面，完成后即可「启动引擎」。
+        </p>
+        <pre class="output logs" id="deps-logs"></pre>
       </section>
 
       <section class="panel">

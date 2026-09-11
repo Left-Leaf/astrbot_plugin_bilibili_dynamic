@@ -120,7 +120,8 @@ class BridgeProcess:
             raise RuntimeError(f"缺少桥接脚本：{script}")
         if not (self.node_dir / "node_modules").exists():
             raise RuntimeError(
-                "Node 依赖未安装，请先在插件 node/ 目录执行 `npm install`（首次会下载 Chromium，耗时较长）",
+                "Node 依赖未安装：请在插件控制台点「安装 Node 依赖」按钮"
+                "（等价于在 node/ 目录执行 npm install，首次会下载 Chromium，耗时较长）",
             )
 
         self.qrcode_png = ""
