@@ -1,0 +1,15 @@
+{
+  "name": "astrbot-plugin-bilibili-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Node bridge for astrbot_plugin_bilibili: runs the bilibili-user-simulation kernel and forwards captured dynamics to the AstrBot plugin.",
+  "scripts": {
+    "bridge": "node --import tsx bridge.ts"
+  },
+  "dependencies": {
+    "bilibili-user-simulation": "github:Left-Leaf/bilibili-user-simulation#0f736cfb83f9345719bc8911ae2f4d22875966f0",
+    "puppeteer-extra": "^3.3.6",
+    "tsx": "^4.19.0"
+  }
+}

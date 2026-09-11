@@ -1,0 +1,70 @@
+{
+  "node_bin": {
+    "type": "string",
+    "description": "Node 可执行文件",
+    "hint": "启动 Node 桥接进程使用的命令，默认 node（需 Node.js 20+）。",
+    "default": "node"
+  },
+  "headless": {
+    "type": "bool",
+    "description": "无头模式",
+    "hint": "开启后浏览器不显示窗口；登录二维码会显示在插件控制台页面。",
+    "default": true
+  },
+  "persona_id": {
+    "type": "string",
+    "description": "内置人格 ID",
+    "hint": "使用 bilibili-user-simulation 包内的人格配置，默认 ak-night-worker。",
+    "default": "ak-night-worker"
+  },
+  "persona_file": {
+    "type": "string",
+    "description": "外部人格文件",
+    "hint": "填写后优先于内置人格 ID，使用该 JSON 文件作为人格配置。",
+    "default": ""
+  },
+  "persona_dir": {
+    "type": "string",
+    "description": "人格目录",
+    "hint": "人格文件所在目录（persona_id 就是该目录下的文件名，不含 .json）；留空使用依赖库自带目录。",
+    "default": ""
+  },
+  "user_data_dir": {
+    "type": "string",
+    "description": "浏览器用户数据目录",
+    "hint": "登录态就存在这里；留空使用插件数据目录下的 browser_profile/（推荐，更新依赖不会丢登录态），指定后强制使用该目录。",
+    "default": ""
+  },
+  "chrome_path": {
+    "type": "string",
+    "description": "Chrome 可执行文件路径",
+    "hint": "留空时使用 puppeteer 已下载的浏览器；指定后强制使用该 Chrome。",
+    "default": ""
+  },
+  "message_style": {
+    "type": "string",
+    "description": "动态分发样式",
+    "hint": "auto：自绘分享图（Pillow 本地绘制：UP 名 + 正文 + 全部图片，视频只画封面与链接，内嵌转发画成引用块）；rich：一条消息里文字 + 原图；text：纯文本；forward：QQ 合并转发。",
+    "options": ["auto", "rich", "text", "forward"],
+    "labels": ["分享图（推荐）", "图文消息", "纯文本", "合并转发"],
+    "default": "auto"
+  },
+  "dispatch_initial": {
+    "type": "bool",
+    "description": "分发首次加载的动态",
+    "hint": "仅在「还没有历史水位」（首次安装/删过 watermark.json）时生效：开启后连首批历史动态一起发。日常运行只会分发比「上次已见的最新动态」更新的动态，调试分发链路时才需要打开。",
+    "default": false
+  },
+  "max_dispatch_per_round": {
+    "type": "int",
+    "description": "单轮最多分发条数",
+    "hint": "每次捕获最多向每个订阅群分发多少条动态，避免刷屏。",
+    "default": 5
+  },
+  "dispatch_interval": {
+    "type": "float",
+    "description": "分发间隔（秒）",
+    "hint": "相邻两条动态之间的发送间隔，降低被平台限流的概率。",
+    "default": 1.5
+  }
+}

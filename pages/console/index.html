@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>B 站蹲饼控制台</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header class="page-header">
+      <div>
+        <h1>B 站蹲饼控制台</h1>
+        <p class="subtitle">
+          引擎开关只允许在这里下发：聊天窗口里的任何用户指令都无法开启蹲饼或模拟人格。
+        </p>
+      </div>
+      <button id="refresh" class="btn ghost" type="button">刷新状态</button>
+    </header>
+
+    <section class="status-bar" id="status-bar">
+      <span class="chip" id="chip-engine">引擎：-</span>
+      <span class="chip" id="chip-login">登录态：-</span>
+      <span class="chip" id="chip-fetch">蹲饼：-</span>
+      <span class="chip" id="chip-sim">模拟人格：-</span>
+      <span class="chip" id="chip-dynamics">已捕获：-</span>
+    </section>
+
+    <main class="layout">
+      <section class="panel">
+        <h2>登录二维码</h2>
+        <p class="hint">
+          首次使用请先「启动引擎」，再点「获取登录二维码」；手机 B 站 App 扫码后本页会自动刷新登录态。
+        </p>
+        <div class="qr-box" id="qr-box">
+          <span class="qr-placeholder" id="qr-placeholder">暂无二维码</span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>群订阅（群 → 关注 UP）</h2>
+        <p class="hint">
+          蹲饼会把关注流的全部动态回传，由插件按下面这份「群 → 关注 UP 列表」筛选后分发。
+          群管理员在群内发送 <code>/关注up &lt;uid 或空间链接&gt;</code> 即为该群添加订阅，
+          <code>/取关up &lt;uid&gt;</code> 移除，<code>/关注列表</code> 查看。
+        </p>
+        <ul class="targets" id="subscribers"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>指令</h2>
+        <div class="button-grid">
+          <button class="btn" data-line="start" type="button">启动引擎</button>
+          <button class="btn" data-line="login" type="button">获取登录二维码</button>
+          <button class="btn" data-line="fetch on" type="button">开启蹲饼</button>
+          <button class="btn" data-line="fetch off" type="button">关闭蹲饼</button>
+          <button class="btn" data-line="sim on" type="button">开启模拟人格</button>
+          <button class="btn" data-line="sim off" type="button">结束模拟人格</button>
+          <button class="btn" data-line="status" type="button">状态快照</button>
+          <button class="btn" data-line="dynamics 5" type="button">最近 5 条动态</button>
+          <button class="btn ghost" data-line="help" type="button">指令帮助</button>
+          <button class="btn danger" data-line="stop" type="button">关闭引擎</button>
+        </div>
+        <form class="command-input" id="command-form">
+          <input
+            id="command-line"
+            type="text"
+            autocomplete="off"
+            placeholder="也可以直接输入指令，例如 fetch on"
+          />
+          <button class="btn" type="submit">执行</button>
+        </form>
+        <pre class="output" id="output"></pre>
+      </section>
+
+      <section class="panel">
+        <h2>最近捕获的动态</h2>
+        <ul class="dynamics" id="dynamics"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>分发记录</h2>
+        <p class="hint">
+          「蹲到了但群里没动静」时看这里：首次加载的历史动态默认不分发（可在插件配置里打开「分发首次加载的动态」）；每条动态只会发给关注了该作者的群。
+        </p>
+        <pre class="output dispatches" id="dispatch-logs"></pre>
+      </section>
+
+      <section class="panel">
+        <h2>引擎日志</h2>
+        <pre class="output logs" id="logs"></pre>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

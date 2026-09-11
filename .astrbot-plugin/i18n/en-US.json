@@ -1,0 +1,13 @@
+{
+  "metadata": {
+    "display_name": "Bilibili Dynamic Watch",
+    "short_desc": "Toggle the watcher from the console and push dynamics to subscribed groups",
+    "desc": "Bilibili dynamic watcher built on the Node library bilibili-user-simulation. The engine can only be toggled from the WebUI console; watching is unfiltered and the plugin filters per group, where an admin subscribes with /关注up <uid>."
+  },
+  "pages": {
+    "console": {
+      "title": "Watcher Console",
+      "description": "Start the engine, scan the login QR code, toggle watching/simulation, and inspect subscriptions and captured dynamics."
+    }
+  }
+}

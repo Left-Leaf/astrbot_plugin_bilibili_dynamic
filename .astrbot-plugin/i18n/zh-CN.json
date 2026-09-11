@@ -1,0 +1,13 @@
+{
+  "metadata": {
+    "display_name": "B站动态蹲饼",
+    "short_desc": "控制台开启蹲饼，动态以图文消息分发到订阅群",
+    "desc": "基于 Node 库 bilibili-user-simulation 的蹲饼插件：引擎只能在 WebUI 控制台开启；蹲饼不筛选，由插件按「群 → 关注 UP 列表」筛选分发，群管理员用 /关注up <uid> 订阅。"
+  },
+  "pages": {
+    "console": {
+      "title": "蹲饼控制台",
+      "description": "启动引擎、扫码登录、开关蹲饼与模拟人格，并查看订阅群与最近动态。"
+    }
+  }
+}

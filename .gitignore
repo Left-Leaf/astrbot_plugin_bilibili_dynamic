@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+.ruff_cache/
+
+# Node
+node_modules/
+# package-lock.json 里记录的是 git+ssh 形式的依赖地址，直接发布会让没有 SSH key 的用户装不上；
+# 依赖版本改为在 package.json 里写死提交号。
+package-lock.json
+
+# Runtime artifacts
+*.log
+puppeteer-browser/
