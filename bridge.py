@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import shutil
 from collections import deque
 from collections.abc import Awaitable, Callable
@@ -30,24 +31,33 @@ READY_TIMEOUT_SECONDS = 180
 COMMAND_TIMEOUT_SECONDS = 300
 """单条控制台指令（含登录扫码等待）的超时时间。"""
 
+_SURROGATE_RE = re.compile("[\ud800-\udfff]")
+"""代理字符码位区间：Python 里合法字符不会落在这里，命中的必然是残缺字符。"""
+
 
 def _scrub_surrogates(value: Any) -> Any:
     """递归剔除字符串里无法编码为 UTF-8 的孤立代理字符（半个 emoji）。
 
-    Node 侧只要在 emoji 中间截断文本（例如内核日志里的 ``.slice(0, 60)``），
+    Node 侧只要在 emoji 中间截断文本（例如内核按码元 ``.slice(0, 60)``），
     ``JSON.stringify`` 就会写出 ``"\\ud83d"`` 这类孤立代理转义，``json.loads`` 又会原样
     还原成一个残缺字符。这种字符串在 Python 里没法再编码成 UTF-8，会让下游直接报
-    ``surrogates not allowed``（WebUI 的 JSON 响应、日志落盘、消息发送都会中招），
-    所以在协议入口统一清理一次。
+    ``surrogates not allowed``（WebUI 的 JSON 响应、日志落盘、订阅表落盘都会中招）。
+
+    库侧对出口数据是「B 站原始 item 原样透传」的契约，脏数据（例如 B 站接口自己带着
+    残缺字符）不会被它清洗，所以宿主必须在协议入口自己坑一字。
 
     Args:
         value: 已解析的事件数据（dict / list / str，其他类型原样返回）。
 
     Returns:
-        结构相同、字符串中不再含孤立代理字符的新对象。
+        结构相同、字符串中不再含孤立代理字符的新对象。残缺字符统一换成 ASCII ``?``：
+        中文字体与 emoji 字体都没有 U+FFFD 字形，换成它分享图会画成方框。
     """
     if isinstance(value, str):
-        return value.encode("utf-8", "replace").decode("utf-8")
+        # 绝大多数字符串都不含代理字符，先走快速路径
+        if _SURROGATE_RE.search(value) is None:
+            return value
+        return _SURROGATE_RE.sub("?", value)
     if isinstance(value, dict):
         return {key: _scrub_surrogates(item) for key, item in value.items()}
     if isinstance(value, list):

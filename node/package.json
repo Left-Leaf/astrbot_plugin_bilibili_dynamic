@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "astrbot-plugin-bilibili-bridge",
   "version": "1.0.0",
   "private": true,
@@ -8,7 +8,7 @@
     "bridge": "node --import tsx bridge.ts"
   },
   "dependencies": {
-    "bilibili-user-simulation": "github:Left-Leaf/bilibili-user-simulation#3bdfc5df918bfe60f987f10eeb85c87419357668",
+    "bilibili-user-simulation": "github:Left-Leaf/bilibili-user-simulation#5b292fd1c09d31b3097845d9206cafa4d64a4814",
     "puppeteer-extra": "^3.3.6",
     "tsx": "^4.19.0"
   }
