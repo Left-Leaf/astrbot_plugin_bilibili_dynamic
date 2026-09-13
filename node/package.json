@@ -8,7 +8,7 @@
     "bridge": "node --import tsx bridge.ts"
   },
   "dependencies": {
-    "bilibili-user-simulation": "github:Left-Leaf/bilibili-user-simulation#e9c5a1f801b9e26c7bde3170db0be6d1391ec4a7",
+    "bilibili-user-simulation": "github:Left-Leaf/bilibili-user-simulation#b271a62b44f4ebfbfb1f16684096cda8618cb8f7",
     "puppeteer-extra": "^3.3.6",
     "tsx": "^4.19.0"
   }

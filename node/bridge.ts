@@ -29,15 +29,13 @@ import {
   type BiliDynamicItem,
   type DynamicSubscription,
   type KernelInitializeOptions,
+  type LoginQrPayload,
 } from 'bilibili-user-simulation';
 
 import { normalizeDynamic, type SimpleDynamic } from './dynamics.js';
 
 /** 协议行前缀，宿主只解析带该前缀的 stdout 行 */
 const MARKER = '@@BDYN@@';
-
-/** 二维码轮询间隔（毫秒）：登录弹窗渲染较慢，靠轮询兜住 */
-const QR_POLL_INTERVAL_MS = 3000;
 
 /** 状态心跳间隔（毫秒） */
 const STATUS_INTERVAL_MS = 15000;
@@ -58,20 +56,6 @@ interface BridgeConfig {
   chromePath?: string;
   /** 增量基线（秒）：上次已见动态的最新发布时间，内核只投递它之后的动态（不缺失） */
   baselineTs?: number;
-}
-
-/** 只用到的那点 Puppeteer 结构（新版内核把 page/browser 收成私有，这里在 launch 处捕获） */
-interface QrElement {
-  screenshot: (options: { encoding: 'base64' }) => Promise<string>;
-  dispose: () => Promise<void>;
-}
-
-interface QrPage {
-  $: (selector: string) => Promise<QrElement | null>;
-}
-
-interface QrBrowser {
-  pages: () => Promise<QrPage[]>;
 }
 
 /** 输出一条协议事件 */
@@ -109,22 +93,37 @@ try {
   fatal(`桥接配置解析失败: ${toErrorMessage(error)}`);
 }
 
-/** 内核持有的浏览器（新版内核不暴露 page/browser，这里包一层 launch 捕获，仅用于登录二维码截图） */
-let browser: QrBrowser | null = null;
-
-// 始终包一层 launch：① 指定 chromePath 时注入 executablePath；② 捕获浏览器实例
-const puppeteerExtra = (await import('puppeteer-extra')).default;
-const patchedLaunch = puppeteerExtra.launch.bind(puppeteerExtra);
-(puppeteerExtra as unknown as { launch: (options?: object) => Promise<unknown> }).launch = async (
-  options: object = {},
-) => {
-  const merged = config.chromePath
-    ? { executablePath: config.chromePath, ...options }
-    : options;
-  const launched = await patchedLaunch(merged);
-  browser = launched as QrBrowser;
-  return launched;
+/** 内核登录二维码回调：登录阶段内核每发布一张二维码回调一次（换码时 fingerprint 会变） */
+let lastQrFingerprint = '';
+const onQrcode = (qr: LoginQrPayload): void => {
+  if (qr.fingerprint && qr.fingerprint === lastQrFingerprint) {
+    return;
+  }
+  lastQrFingerprint = qr.fingerprint;
+  // 内核给的是 `data:image/png;base64,...`，协议里传裸 base64（页面自己拼 data URL）
+  const png = (qr.imageBase64 ?? '').replace(/^data:image\/\w+;base64,/, '');
+  if (png) {
+    emit({ type: 'qrcode', png, url: qr.url ?? '' });
+  } else {
+    // 只解出链接、没拿到图片时，至少把链接写进日志（控制台可见）
+    emit({
+      type: 'log',
+      level: 'warn',
+      message: qr.url
+        ? `登录二维码未取到图片，请用链接登录：${qr.url}`
+        : '登录二维码未取到（请查看浏览器窗口）',
+    });
+  }
 };
+
+// 指定 Chrome 路径时统一补进 launch 参数（库内部走的就是这个 puppeteer-extra 实例）
+if (config.chromePath) {
+  const puppeteerExtra = (await import('puppeteer-extra')).default;
+  const patchedLaunch = puppeteerExtra.launch.bind(puppeteerExtra);
+  (puppeteerExtra as unknown as { launch: (options?: object) => unknown }).launch = (
+    options: object = {},
+  ) => patchedLaunch({ executablePath: config.chromePath, ...options });
+}
 
 /** 内核状态快照（新版内核不再提供 getStatus()，桥接层自己维护；字段与控制台页面一致） */
 const state = {
@@ -149,6 +148,8 @@ const initOptions: KernelInitializeOptions = {
   headless: config.headless ?? true,
   // 登录交给下面的登录探针 / 控制台 login 指令驱动，初始化本身不阻塞等待扫码
   waitForLogin: false,
+  // 登录阶段内核会把二维码交给这个回调（无需自己截图）
+  onQrcode,
 };
 if (config.userDataDir) {
   initOptions.userDataDir = config.userDataDir;
@@ -177,7 +178,7 @@ let loginTask: Promise<boolean> | null = null;
 const loginOnce = (): Promise<boolean> => {
   if (!loginTask) {
     loginTask = kernel
-      .login()
+      .login({ onQrcode })
       .then((ok) => {
         state.loggedIn = ok;
         return ok;
@@ -218,36 +219,6 @@ const subscription: DynamicSubscription = kernel.createDynamicListener((items, k
   emit({ type: 'dynamics', kind, items: normalized });
 });
 
-// ===== 二维码：轮询登录弹窗容器，截图后回传 base64 PNG =====
-// 库自带的终端二维码提取在内核模式下拿不到（弹窗 canvas/img 渲染更晚），因此这里直接截图。
-let lastQrBase64 = '';
-
-const pollQrCode = async (): Promise<void> => {
-  if (!browser || state.loggedIn) {
-    return;
-  }
-  const pages = await browser.pages().catch(() => [] as QrPage[]);
-  // 登录弹窗可能是主页弹出的、也可能新开标签页，逐个找
-  for (const page of pages) {
-    try {
-      const handle = await page.$('.login-scan-box, .scan-box');
-      if (!handle) {
-        continue;
-      }
-      const shot = await handle.screenshot({ encoding: 'base64' });
-      await handle.dispose();
-      if (shot && shot !== lastQrBase64) {
-        lastQrBase64 = shot;
-        emit({ type: 'qrcode', png: shot });
-      }
-      return;
-    } catch {
-      // 弹窗关闭 / 页面切换 / 截图失败时忽略，等下一轮
-    }
-  }
-};
-
-const qrTimer = setInterval(() => void pollQrCode(), QR_POLL_INTERVAL_MS);
 const statusTimer = setInterval(emitStatus, STATUS_INTERVAL_MS);
 
 // ===== 指令通道（stdin）=====
@@ -258,11 +229,9 @@ const shutdown = async (): Promise<void> => {
     return;
   }
   closing = true;
-  clearInterval(qrTimer);
   clearInterval(statusTimer);
   rl.close();
   subscription.cancel();
-  browser = null;
   await kernel.destroy().catch(() => undefined);
   emit({ type: 'bye' });
   setTimeout(() => process.exit(0), 50);
