@@ -320,12 +320,15 @@ const handleLine = async (line: string): Promise<void> => {
 
     if (head === 'fetch') {
       if (action === 'on') {
+        // 先快照本次请求的基线：startFetch 期间首批动态会投递并把 baselineTs 推进，
+        // 回执必须说「本次真正传给内核的值」，否则会和内核日志里的基线对不上
+        const requested = baselineTs;
         const covered = await kernel.startFetch({
-          baselineTs: baselineTs || undefined,
+          baselineTs: requested || undefined,
         });
         state.fetchRunning = true;
-        const range = baselineTs
-          ? `基线 ${readTime(baselineTs)} 之后`
+        const range = requested
+          ? `基线 ${readTime(requested)} 之后`
           : '当前时间之后';
         reply(
           true,
