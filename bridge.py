@@ -61,6 +61,8 @@ class BridgeProcess:
         self.config = config
         self.on_dynamics = on_dynamics
         self.data_dir = data_dir
+        self.baseline_ts: float = 0
+        """传给内核的增量基线（秒）：上次已见动态的最新发布时间，由插件在 start 前设置。"""
         self.qrcode_png = ""
         self.status: dict[str, Any] = {}
         self.dynamics: deque[dict] = deque(maxlen=50)
@@ -136,6 +138,7 @@ class BridgeProcess:
             "personaDir": str(self.config.get("persona_dir") or "").strip(),
             "userDataDir": self._resolve_user_data_dir(),
             "chromePath": str(self.config.get("chrome_path") or "").strip(),
+            "baselineTs": int(self.baseline_ts or 0),
         }
 
         logger.info(f"[bilibili] 启动 Node 桥接进程：{node_bin} bridge.ts")
@@ -349,7 +352,7 @@ class BridgeProcess:
             self.status = event.get("status") or {}
             self._ready.set()
             logger.info(
-                "[bilibili] 内核已就绪（蹲饼将返回关注流全部动态，筛选由插件负责）"
+                "[bilibili] 内核已就绪（蹲饼按增量基线只投递新动态，筛选由插件负责）"
             )
         elif event_type == "status":
             self.status = event.get("status") or {}

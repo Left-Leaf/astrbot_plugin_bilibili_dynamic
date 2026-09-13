@@ -5,7 +5,7 @@
 1. **控制台独占的引擎开关**：蹲饼 / 模拟人格这类会操纵本机浏览器的能力
    **不注册为聊天指令**，只能在插件控制台页面（``pages/console``）下发，
    用户侧无法开启。
-2. **蹲饼不筛选**：依赖库把关注流里**全部 UP** 的动态原样回传，筛选完全由
+2. **蹲饼不筛选**：依赖库按增量基线把**全部 UP** 的新动态原样回传，筛选完全由
    插件负责（``/关注up`` 加入本群列表后才会分发该 UP 的动态）。
 3. **群订阅 = 「群号 → 关注 UP 列表」**：群管理员在群里发送
    ``/关注up <uid>`` 把某个 UP 加入**本群**的关注列表（同时调用内核在运行态
@@ -43,8 +43,8 @@ CONSOLE_HELP = """可用的控制台指令：
   start                启动引擎（拉起 Node 内核 + 浏览器，不开启任何功能）
   stop                 关闭引擎（结束浏览器与 Node 进程）
   login                确保登录（未登录时生成二维码，页面会显示）
-  fetch on             开启蹲饼（捕获关注流全部动态，筛选由插件按群订阅完成）
-  fetch off [close]    关闭蹲饼（带 close 时同时关闭动态页标签）
+  fetch on             开启蹲饼（只投递增量基线上的新动态，筛选由插件按群订阅完成）
+  fetch off            关闭蹲饼（同时关闭动态页标签）
   follow <uid>         运行态主动关注一个 UP（独立操作，不进模拟任务流）
   card <动态id/链接>    把本次运行捕获过的动态渲染成分享图（存到插件数据目录的 cards/）
   deps install         安装 Node 依赖（等价于在 node/ 目录执行 npm install，首次会下载 Chromium）
@@ -60,7 +60,7 @@ CONSOLE_HELP = """可用的控制台指令：
     PLUGIN_NAME,
     "Left-Leaf",
     "B 站动态蹲饼：控制台控制引擎，按群订阅筛选分发动态",
-    "2.2.0",
+    "2.3.0",
 )
 class BilibiliPlugin(Star):
     """B 站动态蹲饼插件（Node 桥接 + 控制台控制 + 群级 UP 订阅分发）。"""
@@ -334,6 +334,8 @@ class BilibiliPlugin(Star):
             if head == "start":
                 if self.bridge.running:
                     return {"ok": True, "output": "引擎已在运行中。"}
+                # 把「上次已见动态的最新时间」作为增量基线交给内核：它只投递基线之后的动态
+                self.bridge.baseline_ts = self._dynamic_watermark or 0
                 await self.bridge.start()
                 return {"ok": True, "output": "✅ 引擎已启动（浏览器已打开）。"}
             if head == "stop":
@@ -537,35 +539,18 @@ class BilibiliPlugin(Star):
     def _load_watermark(self) -> float | None:
         """读取「上次已见动态的最新发布时间」（新动态判定水位线）。
 
-        优先用插件自己存的 ``watermark.json``；没有时回退读依赖库的增量基线
-        （``last-fetched-dynamic.json`` 里就是一个 ``pubTs``，即上次获取到的最新动态时间）。
+        它是插件自己的 ``watermark.json``：既用来过滤送达的动态，也在启动引擎时
+        作为**增量基线**交给内核（内核只投递基线之后的动态，不缺失）。
 
         Returns:
-            时间戳（秒）；两处都读不到时返回 None（表示从未获取过）。
+            时间戳（秒）；读不到时返回 None（表示从未获取过）。
         """
-        sources = (
-            self.watermark_file,
-            self.node_dir
-            / "node_modules"
-            / "bilibili-user-simulation"
-            / "data"
-            / "last-fetched-dynamic.json",
-        )
-        for path in sources:
-            try:
-                data = json.loads(path.read_text(encoding="utf-8"))
-                value = float(data.get("pubTs") or 0)
-            except (
-                OSError,
-                json.JSONDecodeError,
-                AttributeError,
-                TypeError,
-                ValueError,
-            ):
-                continue
-            if value > 0:
-                return value
-        return None
+        try:
+            data = json.loads(self.watermark_file.read_text(encoding="utf-8"))
+            value = float(data.get("pubTs") or 0)
+        except (OSError, json.JSONDecodeError, AttributeError, TypeError, ValueError):
+            return None
+        return value if value > 0 else None
 
     def _save_watermark(self) -> None:
         """把水位线写回数据目录（重启后仍能区分新旧动态）。"""
@@ -677,29 +662,25 @@ class BilibiliPlugin(Star):
     async def _on_dynamics(self, kind: str, items: list[dict]) -> None:
         """桥接进程捕获到动态时的处理入口（库不筛选，这里按群订阅筛）。
 
-        新动态的判定不看内核给的 ``kind`` 标签（页面重载后的第一批也叫 ``INIT``），
-        而是用**上一次已见动态里最新的发布时间**做水位线：
+        新动态的判定不看内核给的 ``kind`` 标签（两种 kind 都是增量），而是用**上一次
+        已见动态里最新的发布时间**做水位线——它同时也是启动引擎时交给内核的增量基线，
+        所以内核投递上来的通常都晚于水位，这里的过滤只是兵底保险：
 
-        * 本次运行的第一批：默认整批当历史动态跳过，只把最新的时间记为水位；
-        * 之后的每一批：只有发布时间晚于水位的才当作新动态分发；
-        * 水位的粒度是「秒」，所以同一秒发布的多条动态会一起被当成新一轮。
+        * 发布时间晚于水位 → 新动态 → 按群订阅筛选后分发；
+        * 不晚于水位 → 旧动态 → 跳过；
+        * 还没有水位（刚装好插件）→ 内核从「当前时间」开始投递，送来的就是新动态，直接分发；
+        * 水位的粒度是「秒」，同一秒发布的多条会一起被当成新一轮。
 
         Args:
-            kind: 捕获类型，``INIT``（首次加载）或 ``UPDATE``（轮询更新）。
-            items: 本次捕获到的动态列表（关注流全部 UP）。
+            kind: 内核批次标签，``INIT``（本次开启后首次投递）或 ``UPDATE``。
+            items: 本次捕获到的动态列表（关注流全部 UP，已按基线做过增量过滤）。
         """
         newest = max((float(item.get("pubTs") or 0) for item in items), default=0.0)
 
         if self._dynamic_watermark is None:
-            # 从未获取过（首次安装/删除过状态）：整批当历史动态，只把最新时间记为水位
+            # 首次投递：内核已经按「当前时间」做过增量过滤，这里直接当成新动态
             self._dynamic_watermark = newest
             self._save_watermark()
-            if not bool(self.config.get("dispatch_initial", False)):
-                self._log_dispatch(
-                    f"首次加载 {len(items)} 条动态（没有历史水位），"
-                    "按配置跳过分发（dispatch_initial=false）",
-                )
-                return
         else:
             fresh = [
                 item

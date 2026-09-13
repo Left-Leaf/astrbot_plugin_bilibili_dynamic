@@ -49,12 +49,6 @@
     "labels": ["分享图（推荐）", "图文消息", "纯文本", "合并转发"],
     "default": "auto"
   },
-  "dispatch_initial": {
-    "type": "bool",
-    "description": "分发首次加载的动态",
-    "hint": "仅在「还没有历史水位」（首次安装/删过 watermark.json）时生效：开启后连首批历史动态一起发。日常运行只会分发比「上次已见的最新动态」更新的动态，调试分发链路时才需要打开。",
-    "default": false
-  },
   "max_dispatch_per_round": {
     "type": "int",
     "description": "单轮最多分发条数",
