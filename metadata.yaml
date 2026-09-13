@@ -15,7 +15,7 @@ desc: |
   列表」完成。群管理员在群内发送 /关注up <uid> 即为该群添加订阅（同时在运行态
   关注该 UP），/取关up 移除，/关注列表 查看；捕获到动态后只分发给关注了该作者
   的群，同一个 UP 可被多个群分别订阅。
-version: 2.3.2
+version: 2.3.3
 author: Left-Leaf
 repo: https://github.com/Left-Leaf/astrbot_plugin_bilibili_dynamic
 astrbot_version: ">=4.9.2"

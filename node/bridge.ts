@@ -388,12 +388,13 @@ const handleLine = async (line: string): Promise<void> => {
         true,
         picked.length
           ? picked
-              .map(
-                (item: SimpleDynamic) =>
-                  `· ${item.author || item.uid || '未知 UP 主'}${
-                    item.pubTimeText ? ` · ${item.pubTimeText}` : ''
-                  }：${(item.text || '（无正文）').slice(0, 60)}`,
-              )
+              .map((item: SimpleDynamic) => {
+                // 按码点截断：直接 slice 会把 emoji 劈成半个代理字符，宿主无法编码
+                const text = Array.from(item.text || '（无正文）').slice(0, 60).join('');
+                return `· ${item.author || item.uid || '未知 UP 主'}${
+                  item.pubTimeText ? ` · ${item.pubTimeText}` : ''
+                }：${text}`;
+              })
               .join('\n')
           : '（本次运行还没有捕获到动态）',
       );

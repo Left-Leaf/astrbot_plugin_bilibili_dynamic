@@ -60,7 +60,7 @@ CONSOLE_HELP = """可用的控制台指令：
     PLUGIN_NAME,
     "Left-Leaf",
     "B 站动态蹲饼：控制台控制引擎，按群订阅筛选分发动态",
-    "2.3.2",
+    "2.3.3",
 )
 class BilibiliPlugin(Star):
     """B 站动态蹲饼插件（Node 桥接 + 控制台控制 + 群级 UP 订阅分发）。"""

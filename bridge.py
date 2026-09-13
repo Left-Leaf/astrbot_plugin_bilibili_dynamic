@@ -31,6 +31,30 @@ COMMAND_TIMEOUT_SECONDS = 300
 """单条控制台指令（含登录扫码等待）的超时时间。"""
 
 
+def _scrub_surrogates(value: Any) -> Any:
+    """递归剔除字符串里无法编码为 UTF-8 的孤立代理字符（半个 emoji）。
+
+    Node 侧只要在 emoji 中间截断文本（例如内核日志里的 ``.slice(0, 60)``），
+    ``JSON.stringify`` 就会写出 ``"\\ud83d"`` 这类孤立代理转义，``json.loads`` 又会原样
+    还原成一个残缺字符。这种字符串在 Python 里没法再编码成 UTF-8，会让下游直接报
+    ``surrogates not allowed``（WebUI 的 JSON 响应、日志落盘、消息发送都会中招），
+    所以在协议入口统一清理一次。
+
+    Args:
+        value: 已解析的事件数据（dict / list / str，其他类型原样返回）。
+
+    Returns:
+        结构相同、字符串中不再含孤立代理字符的新对象。
+    """
+    if isinstance(value, str):
+        return value.encode("utf-8", "replace").decode("utf-8")
+    if isinstance(value, dict):
+        return {key: _scrub_surrogates(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_scrub_surrogates(item) for item in value]
+    return value
+
+
 class BridgeProcess:
     """``node/bridge.ts`` 子进程的生命周期与协议封装。
 
@@ -347,6 +371,8 @@ class BridgeProcess:
         Args:
             event: 已解析的事件字典，``type`` 字段决定处理方式。
         """
+        # 内核日志会把长文本截断，可能劈出半个 emoji，先清掉再往状态/日志里放
+        event = _scrub_surrogates(event)
         event_type = event.get("type")
         if event_type == "ready":
             self.status = event.get("status") or {}
