@@ -60,7 +60,7 @@ CONSOLE_HELP = """可用的控制台指令：
     PLUGIN_NAME,
     "Left-Leaf",
     "B 站动态蹲饼：控制台控制引擎，按群订阅筛选分发动态",
-    "2.3.4",
+    "2.3.5",
 )
 class BilibiliPlugin(Star):
     """B 站动态蹲饼插件（Node 桥接 + 控制台控制 + 群级 UP 订阅分发）。"""
@@ -795,11 +795,15 @@ class BilibiliPlugin(Star):
             )
             self._log_dispatch(f"已分发动态 {dyn_id} → 群 {group_id}（{used_style}）")
         except Exception as exc:  # noqa: BLE001 - 图片可能拉取失败，需降级重试
+            # 平台未连接时异常往往没有 message（如 TimeoutError），用 repr 兜底显示类型名
+            detail = str(exc) or repr(exc)
             logger.warning(
-                f"[bilibili] 向 {group_id} 发送动态失败（{used_style}）: {exc}，降级为文本",
+                f"[bilibili] 向 {group_id} 发送动态失败（{used_style}）: {detail}，降级为文本",
             )
             if used_style == STYLE_TEXT:
-                self._log_dispatch(f"❗ 动态 {dyn_id} → 群 {group_id} 发送失败：{exc}")
+                self._log_dispatch(
+                    f"❗ 动态 {dyn_id} → 群 {group_id} 发送失败：{detail}"
+                )
                 return
             try:
                 await self.context.send_message(
@@ -809,5 +813,6 @@ class BilibiliPlugin(Star):
                 self._log_dispatch(f"已分发动态 {dyn_id} → 群 {group_id}（降级为文本）")
             except Exception as fallback_exc:  # noqa: BLE001 - 降级仍失败时记录原因
                 self._log_dispatch(
-                    f"❗ 动态 {dyn_id} → 群 {group_id} 文本降级仍失败：{fallback_exc}",
+                    f"❗ 动态 {dyn_id} → 群 {group_id} 文本降级仍失败："
+                    f"{str(fallback_exc) or repr(fallback_exc)}",
                 )
