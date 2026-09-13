@@ -93,7 +93,11 @@ try {
   fatal(`桥接配置解析失败: ${toErrorMessage(error)}`);
 }
 
-/** 内核登录二维码回调：登录阶段内核每发布一张二维码回调一次（换码时 fingerprint 会变） */
+/**
+ * 内核登录二维码回调：登录阶段每发布一张二维码回调一次，换码时 `fingerprint` 会变。
+ *
+ * 二维码只有 `login({ onQrcode })` 这一个出口（`initialize()` 不接受该回调）。
+ */
 let lastQrFingerprint = '';
 const onQrcode = (qr: LoginQrPayload): void => {
   if (qr.fingerprint && qr.fingerprint === lastQrFingerprint) {
@@ -147,9 +151,8 @@ const emitStatus = (): void => emit({ type: 'status', status: state });
 const initOptions: KernelInitializeOptions = {
   headless: config.headless ?? true,
   // 登录交给下面的登录探针 / 控制台 login 指令驱动，初始化本身不阻塞等待扫码
+  // （初始化不接受 onQrcode：二维码只从 login({ onQrcode }) 出来）
   waitForLogin: false,
-  // 登录阶段内核会把二维码交给这个回调（无需自己截图）
-  onQrcode,
 };
 if (config.userDataDir) {
   initOptions.userDataDir = config.userDataDir;
